@@ -4,15 +4,16 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/grafana/grafana-plugin-sdk-go/backend"
-	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
-	"github.com/grafana/grafana-plugin-sdk-go/data"
-	sf "github.com/snowflakedb/gosnowflake"
 	"math/big"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/grafana/grafana-plugin-sdk-go/backend"
+	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
+	"github.com/grafana/grafana-plugin-sdk-go/data"
+	sf "github.com/snowflakedb/gosnowflake"
 )
 
 const rowLimit = 10000
@@ -55,7 +56,7 @@ type queryModel struct {
 	TimeColumns []string `json:"timeColumns"`
 }
 
-func (qc *queryConfigStruct) fetchData(config *pluginConfig, password string, privateKey string) (result DataQueryResult, err error) {
+func (qc *queryConfigStruct) fetchData(config *pluginConfig, password string, privateKey string, queryTag string) (result DataQueryResult, err error) {
 	// Custom configuration to reduce memory footprint
 	sf.MaxChunkDownloadWorkers = 2
 	sf.CustomJSONDecoderEnabled = true
@@ -67,6 +68,17 @@ func (qc *queryConfigStruct) fetchData(config *pluginConfig, password string, pr
 		return result, err
 	}
 	defer db.Close()
+
+	// Set the session tag for this request
+	_, err = db.Exec(
+		fmt.Sprintf(
+			`ALTER SESSION SET QUERY_TAG = %q;`,
+			queryTag),
+	)
+	if err != nil {
+		log.DefaultLogger.Error("Could not set query tag", "query", qc.FinalQuery, "err", err)
+		return result, err
+	}
 
 	log.DefaultLogger.Info("Query", "finalQuery", qc.FinalQuery)
 	rows, err := db.Query(qc.FinalQuery)
@@ -176,7 +188,7 @@ func (qc *queryConfigStruct) transformQueryResult(columnTypes []*sql.ColumnType,
 	return values, nil
 }
 
-func (td *SnowflakeDatasource) query(dataQuery backend.DataQuery, config pluginConfig, password string, privateKey string) (response backend.DataResponse) {
+func (td *SnowflakeDatasource) query(dataQuery backend.DataQuery, config pluginConfig, password string, privateKey string, queryTag string) (response backend.DataResponse) {
 	var qm queryModel
 	err := json.Unmarshal(dataQuery.JSON, &qm)
 	if err != nil {
@@ -218,7 +230,7 @@ func (td *SnowflakeDatasource) query(dataQuery backend.DataQuery, config pluginC
 	frame := data.NewFrame("response")
 	frame.Meta = &data.FrameMeta{ExecutedQueryString: queryConfig.FinalQuery}
 
-	dataResponse, err := queryConfig.fetchData(&config, password, privateKey)
+	dataResponse, err := queryConfig.fetchData(&config, password, privateKey, queryTag)
 	if err != nil {
 		response.Error = err
 		return response

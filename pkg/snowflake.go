@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/url"
+
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/datasource"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/instancemgmt"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
-	"net/http"
-	"net/url"
 )
 
 // newDatasource returns datasource.ServeOpts.
@@ -53,11 +54,20 @@ func (td *SnowflakeDatasource) QueryData(ctx context.Context, req *backend.Query
 		return response, err
 	}
 
+	// Build a query tag for the session.
+	queryTag := fmt.Sprintf("grafana:(backend)", req.PluginContext.OrgID)
+	if req.PluginContext.User != nil {
+		queryTag = fmt.Sprintf(
+			"grafana:%v",
+			req.PluginContext.User.Login,
+		)
+	}
+
 	// loop over queries and execute them individually.
 	for _, q := range req.Queries {
 		// save the response in a hashmap
 		// based on with RefID as identifier
-		response.Responses[q.RefID] = td.query(q, config, password, privateKey)
+		response.Responses[q.RefID] = td.query(q, config, password, privateKey, queryTag)
 	}
 
 	return response, nil
