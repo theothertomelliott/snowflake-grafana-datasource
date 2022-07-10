@@ -82,7 +82,7 @@ func queryTagFromContext(pc backend.PluginContext) (string, error) {
 
 	// Add user information as appropriate.
 	// If the User is nil, this is a backend request (such as for alert evaluation).
-	// If the User is not nil, but empty, this is an anonymous request.
+	// If the User is not nil, but only has a role, this is an anonymous request.
 	if pc.User != nil {
 		if u := *pc.User; (backend.User{Role: u.Role}) == u {
 			qtd.IsAnonymous = true
