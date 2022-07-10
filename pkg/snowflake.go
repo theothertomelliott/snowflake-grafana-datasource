@@ -81,11 +81,16 @@ func queryTagFromContext(pc backend.PluginContext) (string, error) {
 	}
 
 	// Add user information as appropriate.
-	// If the User is nil, this is likely a backend request.
+	// If the User is nil, this is a backend request (such as for alert evaluation).
+	// If the User is not nil, but empty, this is an anonymous request.
 	if pc.User != nil {
+		if u := *pc.User; (backend.User{Role: u.Role}) == u {
+			qtd.IsAnonymous = true
+		}
 		qtd.UserName = pc.User.Name
 		qtd.UserLogin = pc.User.Login
 		qtd.UserEmail = pc.User.Email
+		qtd.UserRole = pc.User.Role
 	} else {
 		qtd.IsBackend = true
 	}
@@ -100,12 +105,14 @@ func queryTagFromContext(pc backend.PluginContext) (string, error) {
 // queryTagData is the data type representing the QUERY_TAG JSON
 // format.
 type queryTagData struct {
-	Job       string `json:"job"`
-	OrgId     int64  `json:"org_id"`
-	UserLogin string `json:"user_login"`
-	UserName  string `json:"user_name"`
-	UserEmail string `json:"user_email"`
-	IsBackend bool   `json:"is_backend"`
+	Job         string `json:"job"`
+	OrgId       int64  `json:"org_id"`
+	UserLogin   string `json:"user_login,omitempty"`
+	UserName    string `json:"user_name,omitempty"`
+	UserEmail   string `json:"user_email,omitempty"`
+	UserRole    string `json:"user_role,omitempty"`
+	IsBackend   bool   `json:"is_backend,omitempty"`
+	IsAnonymous bool   `json:"is_anonymous,omitempty"`
 }
 
 type pluginConfig struct {

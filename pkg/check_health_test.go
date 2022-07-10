@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestCreateAndValidationConnectionString(t *testing.T) {
@@ -66,7 +67,7 @@ func TestCreateAndValidationConnectionString(t *testing.T) {
 					},
 				},
 			},
-			connectionString: "user:pass@test?database=&role=&schema=&warehouse=&validateDefaultParameters=true",
+			connectionString: "user:pass@test?QUERY_TAG=%7B%22job%22%3A%22Grafana%22%2C%22org_id%22%3A0%2C%22is_backend%22%3Atrue%7D&database=&role=&schema=&warehouse=&validateDefaultParameters=true",
 		},
 		{
 			request: &backend.CheckHealthRequest{
@@ -77,7 +78,7 @@ func TestCreateAndValidationConnectionString(t *testing.T) {
 					},
 				},
 			},
-			connectionString: "user:pass@test?database=&role=&schema=&warehouse=&config=conf&validateDefaultParameters=true",
+			connectionString: "user:pass@test?QUERY_TAG=%7B%22job%22%3A%22Grafana%22%2C%22org_id%22%3A0%2C%22is_backend%22%3Atrue%7D&database=&role=&schema=&warehouse=&config=conf&validateDefaultParameters=true",
 		},
 	}
 	for i, tc := range tcs {

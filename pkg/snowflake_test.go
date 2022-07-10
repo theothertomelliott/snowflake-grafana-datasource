@@ -104,7 +104,19 @@ func TestBuildQueryTag(t *testing.T) {
 			},
 		},
 		{
-			name: "user initiated",
+			name: "anonymous",
+			pc: backend.PluginContext{
+				OrgID: 123,
+				User:  &backend.User{},
+			},
+			expected: queryTagData{
+				Job:         "Grafana",
+				OrgId:       123,
+				IsAnonymous: true,
+			},
+		},
+		{
+			name: "authenticated user",
 			pc: backend.PluginContext{
 				OrgID: 123,
 				User: &backend.User{
