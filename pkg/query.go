@@ -61,24 +61,13 @@ func (qc *queryConfigStruct) fetchData(config *pluginConfig, password string, pr
 	sf.MaxChunkDownloadWorkers = 2
 	sf.CustomJSONDecoderEnabled = true
 
-	connectionString := getConnectionString(config, password, privateKey)
+	connectionString := getConnectionString(config, password, privateKey, queryTag)
 	db, err := sql.Open("snowflake", connectionString)
 	if err != nil {
 		log.DefaultLogger.Error("Could not open database", "err", err)
 		return result, err
 	}
 	defer db.Close()
-
-	// Set the session tag for this request
-	_, err = db.Exec(
-		fmt.Sprintf(
-			`ALTER SESSION SET QUERY_TAG = %q;`,
-			queryTag),
-	)
-	if err != nil {
-		log.DefaultLogger.Error("Could not set query tag", "query", qc.FinalQuery, "err", err)
-		return result, err
-	}
 
 	log.DefaultLogger.Info("Query", "finalQuery", qc.FinalQuery)
 	rows, err := db.Query(qc.FinalQuery)

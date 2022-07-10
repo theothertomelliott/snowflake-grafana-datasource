@@ -83,6 +83,14 @@ func createAndValidationConnectionString(req *backend.CheckHealthRequest) (strin
 		config.ExtraConfig = "validateDefaultParameters=true"
 	}
 
-	connectionString := getConnectionString(&config, password, privateKey)
+	queryTag, err := queryTagFromContext(req.PluginContext)
+	if err != nil {
+		return "", &backend.CheckHealthResult{
+			Status:  backend.HealthStatusError,
+			Message: "Could not build query tag",
+		}
+	}
+
+	connectionString := getConnectionString(&config, password, privateKey, queryTag)
 	return connectionString, nil
 }

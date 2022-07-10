@@ -54,13 +54,9 @@ func (td *SnowflakeDatasource) QueryData(ctx context.Context, req *backend.Query
 		return response, err
 	}
 
-	// Build a query tag for the session.
-	queryTag := fmt.Sprintf("grafana:(backend)", req.PluginContext.OrgID)
-	if req.PluginContext.User != nil {
-		queryTag = fmt.Sprintf(
-			"grafana:%v",
-			req.PluginContext.User.Login,
-		)
+	queryTag, err := queryTagFromContext(req.PluginContext)
+	if err != nil {
+		return response, err
 	}
 
 	// loop over queries and execute them individually.
@@ -71,6 +67,45 @@ func (td *SnowflakeDatasource) QueryData(ctx context.Context, req *backend.Query
 	}
 
 	return response, nil
+}
+
+// queryTagFromContext builds JSON-formatted string to be applied to the QUERY_TAG parameter
+// for the session (https://docs.snowflake.com/en/sql-reference/parameters.html#query-tag).
+//
+// This tag will include information about the context in which the query was executed
+// such as the user who requested it. This can be used for auditing.
+func queryTagFromContext(pc backend.PluginContext) (string, error) {
+	qtd := queryTagData{
+		Job:   "Grafana",
+		OrgId: pc.OrgID,
+	}
+
+	// Add user information as appropriate.
+	// If the User is nil, this is likely a backend request.
+	if pc.User != nil {
+		qtd.UserName = pc.User.Name
+		qtd.UserLogin = pc.User.Login
+		qtd.UserEmail = pc.User.Email
+	} else {
+		qtd.IsBackend = true
+	}
+
+	queryTagBytes, err := json.Marshal(qtd)
+	if err != nil {
+		return "", err
+	}
+	return string(queryTagBytes), nil
+}
+
+// queryTagData is the data type representing the QUERY_TAG JSON
+// format.
+type queryTagData struct {
+	Job       string `json:"job"`
+	OrgId     int64  `json:"org_id"`
+	UserLogin string `json:"user_login"`
+	UserName  string `json:"user_name"`
+	UserEmail string `json:"user_email"`
+	IsBackend bool   `json:"is_backend"`
 }
 
 type pluginConfig struct {
@@ -92,12 +127,15 @@ func getConfig(settings *backend.DataSourceInstanceSettings) (pluginConfig, erro
 	return config, nil
 }
 
-func getConnectionString(config *pluginConfig, password string, privateKey string) string {
+func getConnectionString(config *pluginConfig, password string, privateKey string, queryTag string) string {
 	params := url.Values{}
 	params.Add("role", config.Role)
 	params.Add("warehouse", config.Warehouse)
 	params.Add("database", config.Database)
 	params.Add("schema", config.Schema)
+	if queryTag != "" {
+		params.Add("QUERY_TAG", queryTag)
+	}
 
 	var userPass = ""
 	if len(privateKey) != 0 {
